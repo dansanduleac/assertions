@@ -1,6 +1,7 @@
 #include "Common.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Module.h"
 #include <utility>
 
 using namespace llvm;
@@ -35,6 +36,11 @@ bool ParseAssertionMeta(StringRef anno, UID_KindTy &UID_Kinds) {
     return true;
   }
   return false; 
+}
+
+StructType *Common::getStructTypeFor(StringRef AssertionKind) {
+  return Assertions.getTypeByName(
+    ("struct." + AssertionKind + "_state").str());
 }
 
 }

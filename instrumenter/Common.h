@@ -5,6 +5,8 @@
 
 namespace llvm {
   class StringRef;
+  class StructType;
+  class Module;
   template <typename T> class SmallVectorImpl;
 }
 
@@ -21,6 +23,18 @@ typedef SmallVectorImpl<std::pair<StringRef, StringRef>> UID_KindTy;
 bool ParseAssertionFuncall(StringRef anno, SmallVectorImpl<StringRef> &UIDs);
 
 bool ParseAssertionMeta(StringRef anno, UID_KindTy &UID_Kinds);
+
+class Common {
+public:
+  Module &Assertions;
+  
+  Common(Module &assertions) : Assertions(assertions) {
+    // For now...
+    // Assertions.dump();
+  }
+
+  StructType *getStructTypeFor(StringRef AssertionKind);
+};
 
 }
 

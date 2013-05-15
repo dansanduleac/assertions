@@ -7,6 +7,7 @@ set(LLVM_LINK_COMPONENTS
      bitwriter
      core
      irreader
+     linker
  )
 
 # LLVM libraries that we need:

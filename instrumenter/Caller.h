@@ -31,26 +31,55 @@
 #ifndef	ANNOTATEVARIABLES_CALLER_INSTRUMENTATION_H
 #define	ANNOTATEVARIABLES_CALLER_INSTRUMENTATION_H
 
+#include "Common.h"
+// From the clang tool.
+#include "Assertion.h"
+
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Value.h"
 #include "llvm/Pass.h"
+
 
 namespace llvm {
   class Function;
   class Instruction;
   class LLVMContext;
   class Module;
+  class CallSite;
 }
 
 namespace assertions {
 
 class CallerInstrumentation;
 
+// TODO move to Common.h
+/// A container for function arguments, which shouldn't be very numerous.
+typedef llvm::SmallVector<llvm::Value*,3> ArgVector;
+
 /// Instruments function calls in the caller context.
 class CallerInstrumenter : public llvm::FunctionPass {
+  llvm::Module *Mod;
+  Common &Co;
+
+  // Caches for alloc and update functions declared in the  module we're
+  // processing.
 public:
+  typedef llvm::StringMap<llvm::Function *> FnMapTy;
+  // Instrumentation function types.
+  enum class FuncType { Init, Update };
+private:
+  FnMapTy InitFuncs;
+  FnMapTy UpdateFuncs;
+
+  llvm::DenseMap<int, llvm::Value *> States;
+
+  AssertionManager AM; // To parse assertion strings.
+public:
+
   static char ID;
-  CallerInstrumenter() : FunctionPass(ID) {}
+  CallerInstrumenter(Common &C) : FunctionPass(ID), Co(C) {}
   ~CallerInstrumenter();
 
   const char* getPassName() const {
@@ -59,29 +88,18 @@ public:
 
   virtual bool doInitialization(llvm::Module &M);
   virtual bool runOnFunction(llvm::Function &Fn);
+  virtual bool runOnBasicBlock(llvm::BasicBlock &Block);
+
+private:
+  bool InstrumentInit(llvm::Instruction &Inst, llvm::CallSite &CS);
+  bool InstrumentExpr(llvm::Instruction &Inst, llvm::CallSite &CS);
+
+  Function *GetFuncFor(StringRef assertionKind, FuncType type);
+  // Returns the cache for the requested instrumentation function type.
+  FnMapTy &SwitchCache(FuncType type);
+  // Gets the annotation string from call of the form void(i8*,i8*,i8*,i32).
+  StringRef ParseAnnotationCall(llvm::CallSite &CS);
 };
-
-
-
-// /// Function instrumentation (caller context).
-// class CallerInstrumentation
-//   : public FnInstrumentation, public InstInstrumentation
-// {
-// public:
-//   /// Construct an object that can instrument calls to a given function.
-//   static CallerInstrumentation* Build(llvm::Module&, llvm::Function *Target);
-
-//   // InstInstrumentation implementation:
-//   bool Instrument(llvm::Instruction&);
-
-// private:
-//   /// Private constructor: clients should use CalleeInstrumention::Build().
-//   CallerInstrumentation(llvm::Module& M, llvm::Function *Target,
-//                         llvm::Function *Instr, FunctionEvent::Direction Dir)
-//     : FnInstrumentation(M, Target, Instr, Dir)
-//   {
-//   }
-// };
 
 }
 

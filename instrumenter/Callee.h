@@ -31,6 +31,8 @@
 #ifndef	ANNOTATEVARIABLES_CALLEE_INSTRUMENTATION_H
 #define	ANNOTATEVARIABLES_CALLEE_INSTRUMENTATION_H
 
+#include "Common.h"
+
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
@@ -46,6 +48,7 @@ namespace llvm {
   class LLVMContext;
   class Module;
   class Value;
+  class StructType;
 }
 
 namespace assertions {
@@ -53,6 +56,8 @@ namespace assertions {
 /// Instruments function calls in the callee context.
 /// Adds 
 class CalleeInstrumenter : public llvm::ModulePass {
+  Common &Co;
+
   typedef llvm::SmallVector<llvm::StringRef, 1> AnnotationsT;
   llvm::DenseMap<llvm::Function*, AnnotationsT> GlobalAnno;
 
@@ -66,7 +71,7 @@ class CalleeInstrumenter : public llvm::ModulePass {
   FunctionDIMap FunctionDIs;
 public:
   static char ID;
-  CalleeInstrumenter() : ModulePass(ID) {}
+  CalleeInstrumenter(Common &C) : ModulePass(ID), Co(C) {}
   ~CalleeInstrumenter();
 
   const char* getPassName() const {

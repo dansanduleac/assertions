@@ -1,4 +1,5 @@
 #include "Callee.h"
+#include "Common.h"
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
@@ -40,10 +41,11 @@ void CalleeInstrumenter::ExtractGlobalAnnotations(llvm::Module &M) {
     Function *F = cast<Function>(*cast<ConstantExpr>(*iter)->op_begin());
     iter++;
     // Second one is getelementptr to the string annotation.
+    // Drop the last character as that is '\0'.
     GlobalVariable *StrGV =
       cast<GlobalVariable>(cast<ConstantExpr>(*iter)->op_begin()->get());
     auto Str = cast<ConstantDataSequential>(
-                  StrGV->getInitializer())->getAsString();
+                  StrGV->getInitializer())->getAsString().drop_back();
     // errs() << Str << "\n";
     GlobalAnno[F].push_back(Str);
   }
@@ -93,10 +95,6 @@ Function *CalleeInstrumenter::ReplaceFunction(Function *F, ArrayRef<Type*> Param
       }
     }
     CallSite CS(F->use_back());
-    // It might not be a call instruction, could be e.g. bitcast in the
-    // annotations ConstantArray.
-    DEBUG(dbgs() << "Removing function use: ");
-    DEBUG(F->use_back()->dump());
     assert(CS);
     Instruction *Call = CS.getInstruction();
 
@@ -230,31 +228,29 @@ bool CalleeInstrumenter::runOnModule(Module &M) {
 
 bool CalleeInstrumenter::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Running on: " << F.getName() << "\n");
-  LLVMContext &C = F.getContext();
+  // LLVMContext &C = F.getContext();
   FunctionType *FTy = F.getFunctionType();
   //unsigned NumArgs = F.arg_size();
   auto const it = GlobalAnno.find(&F);
   if (it != GlobalAnno.end()) {
     for (StringRef anno : it->second) {
-      // Holds information about new parameters we should add.
-      StringRef prefix0 = "assertion.meta,";
       // Holds assertions on the function's return value.
       StringRef prefix1 = "assertion,";
-      if (anno.startswith(prefix0)) {
+      SmallVector<std::pair<StringRef, StringRef>, 2> UID_Kinds;
+      if (ParseAssertionMeta(anno, UID_Kinds)) {
         // Recreate the function type.
         SmallVector<Type*, 10> Params(FTy->param_begin(), FTy->param_end());
-
-        auto Rest = anno.slice(prefix0.size(), anno.size());
-        SmallVector<StringRef, 2> UIDs;
-        Rest.split(UIDs, ",");
-        // auto &ArgList = F.getArgumentList();
-        for (auto UID_cstr : UIDs) {
+  
+        // auto &ArgList = F.getArgumentList(); // like F.arg_begin() ..
+        for (auto &pair : UID_Kinds) {
+          auto &UID = pair.first;
+          auto &AsKind = pair.second;
+          // Extract the control structure type from the compiled Assertions.c
+          // IR file.
+          //auto typ = PointerType::get(IntegerType::get(C, 8), 0);
+          auto *Type = Co.getStructTypeFor(AsKind)->getPointerTo();
           // Arg is inserted at the function automatically.
-          // TODO how do we "know" the actual type?
-          // Maybe we can extract it from a compiled Assertions.h IR file
-          auto UID = UID_cstr.slice(0, UID_cstr.size()-1);
-          auto typ = PointerType::get(IntegerType::get(C, 8), 0);
-          auto arg = new Argument(typ,
+          auto arg = new Argument(Type,
             "assertions." + UID + ".state", &F);
           F.setDoesNotCapture(arg->getArgNo()+1);
           Params.push_back(arg->getType());
@@ -283,6 +279,7 @@ bool CalleeInstrumenter::runOnFunction(Function &F) {
         */
       } else if (anno.startswith(prefix1)) {
         // TODO
+        // Assertion As = AM.getParsedAssertion(anno);
       }
     }
   }
