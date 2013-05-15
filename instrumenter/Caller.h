@@ -52,12 +52,6 @@ namespace llvm {
 
 namespace assertions {
 
-class CallerInstrumentation;
-
-// TODO move to Common.h
-/// A container for function arguments, which shouldn't be very numerous.
-typedef llvm::SmallVector<llvm::Value*,3> ArgVector;
-
 /// Instruments function calls in the caller context.
 class CallerInstrumenter : public llvm::FunctionPass {
   llvm::Module *Mod;

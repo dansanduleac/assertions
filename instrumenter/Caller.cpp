@@ -93,14 +93,16 @@ Function *CallerInstrumenter::GetFuncFor(StringRef assertionKind,
     //auto Fn = Co.Assertions.getFunction(FnName);
     auto Fn = Mod->getFunction(FnName);
     if (!Fn) {
-      report_fatal_error("Allocation function '" + FnName + "' "
+      report_fatal_error("Instrumentation function '" + FnName + "' "
         + "does not exist in Assertions.c");
     }
-    Function *FDecl = cast<Function>(
-      Mod->getOrInsertFunction(FnName, Fn->getFunctionType(),
-                               Fn->getAttributes()));
+    // No need anymore, since we're linking "Assertions" in first.
+    // Function *FDecl = cast<Function>(
+    //   Mod->getOrInsertFunction(FnName, Fn->getFunctionType(),
+    //                            Fn->getAttributes()));
     // InitFunc->setLinkage(GlobalValue::LinkageTypes::LinkerPrivateLinkage);
-    Cached = FDecl;
+    // Cached = FDecl;
+    Cached = Fn;
   }
   return Cached;
 }

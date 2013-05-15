@@ -39,7 +39,7 @@ bool ParseAssertionMeta(StringRef anno, UID_KindTy &UID_Kinds) {
 }
 
 StructType *Common::getStructTypeFor(StringRef AssertionKind) {
-  return Assertions.getTypeByName(
+  return M.getTypeByName(
     ("struct." + AssertionKind + "_state").str());
 }
 

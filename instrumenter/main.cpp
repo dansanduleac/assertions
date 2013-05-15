@@ -118,9 +118,9 @@ int main(int argc, char **argv) {
   llvm::OwningPtr<Module> M;
   M.reset(LoadModule(InputFilename, Context));
   // Load the assertions module...
-  llvm::OwningPtr<Module> Assertions;
-  Assertions.reset(LoadModule(ASSERTIONS_FNAME, Context));
-  if (!M.get() || !Assertions.get()) {
+  llvm::OwningPtr<Module> AsM;
+  AsM.reset(LoadModule(ASSERTIONS_FNAME, Context));
+  if (!M.get() || !AsM.get()) {
     return 1;
   }
 
@@ -143,31 +143,28 @@ int main(int argc, char **argv) {
   if (TD)
     Passes.add(TD);
 
-  // Just add TESLA instrumentation passes.
-  // addPass(Passes, new tesla::AssertionSiteInstrumenter);
-  OwningPtr<Common> Co(new Common(*Assertions.get()));
+  OwningPtr<Common> Co(new Common(*M.get()));
   addPass(Passes, new assertions::CalleeInstrumenter(*Co.get()));
   addPass(Passes, new assertions::CallerInstrumenter(*Co.get()));
-
-  // Write bitcode or assembly to the output as the last step...
-  // if (!NoOutput) {
-  //   if (OutputAssembly)
-  //     Passes.add(createPrintModulePass(&Out->os()));
-  //   else
-  //     Passes.add(createBitcodeWriterPass(Out->os()));
-  // }
 
   // Before executing passes, print the final values of the LLVM options.
   cl::PrintOptionValues();
 
-
-  // Link the module with the Assertions module.
   Linker L(M.get());
   if (Verbose) errs() << "Linking in the Assertions module\n";
 
   std::string ErrorMessage;
-  if (L.linkInModule(Assertions.get(), &ErrorMessage)) {
+  // Link the module M into the Assertions module. Not the other way around,
+  // because we want to keep the linkonce_odr'd functions alive.
+  if (L.linkInModule(AsM.get(), &ErrorMessage)) {
     errs() << argv[0] << ": link error: " << ErrorMessage << "\n";
+    return 1;
+  }
+  AsM.take(); // dispose
+  // errs() << *AsM;
+
+  if (verifyModule(*M)) {
+    errs() << argv[0] << ": linked module is broken!\n";
     return 1;
   }
 
@@ -175,6 +172,7 @@ int main(int argc, char **argv) {
 
   // Now that we have all of the passes ready, run them.
   Passes.run(*M.get());
+  // errs() << *AsM;
 
   // Output stream...
   if (OutputFilename.empty())
@@ -188,10 +186,6 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  if (verifyModule(*M)) {
-    errs() << argv[0] << ": linked module is broken!\n";
-    return 1;
-  }
 
 
   if (Verbose) errs() << "Writing bitcode...\n";

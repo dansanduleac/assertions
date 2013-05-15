@@ -26,12 +26,10 @@ bool ParseAssertionMeta(StringRef anno, UID_KindTy &UID_Kinds);
 
 class Common {
 public:
-  Module &Assertions;
-  
-  Common(Module &assertions) : Assertions(assertions) {
-    // For now...
-    // Assertions.dump();
-  }
+  // The Composite module we're working on.
+  Module &M;
+
+  Common(Module &Mod) : M(Mod) {}
 
   StructType *getStructTypeFor(StringRef AssertionKind);
 };
