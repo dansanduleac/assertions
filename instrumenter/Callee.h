@@ -92,5 +92,5 @@ private:
 
 }
 
-#endif	/* !TESLA_CALLEE_INSTRUMENTATION_H */
+#endif
 
