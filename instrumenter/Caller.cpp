@@ -5,6 +5,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h" // maybe
 #include "llvm/IR/Module.h"
+#include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -134,16 +135,33 @@ bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
   // TODO maybe pass as varargs actually?
   auto Props = ConstantPointerNull::get(Builder.getInt8PtrTy()->getPointerTo());
   // Name of the state variable.
-  Concatenation StateName(".");
-  StateName.append("assertions");
-  StateName.append(As.UID);
-  StateName.append("state");
+  auto StateName = getStateName(As.UID);
+  // Make sure to insert after the initialisation (store), because in most
+  // cases it follows the annotation, and we want to run _after_ that. The
+  // exception is function parameters, the "store" happens right before. So
+  // just decide based on whether next instruction is a store.
+  Instruction *Here = Inst.getNextNode();
+  // BitCast
+  Value *DirectAddr = cast<CastInst>(Addr)->getOperand(0);
+  if (isa<StoreInst>(Here) &&
+      // Store location == address specified in annotation?
+      cast<StoreInst>(Here)->getPointerOperand() == DirectAddr) {
+    // It is, save it after that then.
+    Here = Here->getNextNode();
+  }
+  Builder.SetInsertPoint(Here);
 
-  // Insert before instruction.
-  Builder.SetInsertPoint(&Inst);
   auto *Type = Co.getStructTypeFor(As.Kind);
-  auto *Alloca = Builder.CreateAlloca(Type, nullptr,
-    StateName.str());
+  // TODO we might have assertions with no state, in that case, set Alloca and
+  // States[As.UID] to a ConstantPointerNull.
+
+  // TODO add a special assertion flag (not parameter?) that says "i'm going
+  // to allocate memory myself", this probably can be tested by checking for
+  // the existence of a different function that allocates and returns a
+  // pointer, and it would be retrieved by GetFuncFor(As.Kind,
+  // FuncType::Alloc), then that pointer would get passed to the init
+  // function.
+  auto *Alloca = Builder.CreateAlloca(Type, nullptr, StateName);
   // And save it for re-use.
   States[As.UID] = Alloca;
   DEBUG(dbgs() << "Alloca state: " << Alloca->getName() << "  isStatic=" 
@@ -172,8 +190,7 @@ bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
   auto I = CS.arg_begin();
   // *I should the i8* bitcast of the modified variable, but it can also be
   // *null, specifically when we're annotating a clang CallExpr.
-  //Value *Addr =
-    (void) (*I++);
+  Value *Addr = (*I++);
   StringRef anno = ParseAnnotationCall(CS);
   StringRef prefix1 = "assertion,";
 
@@ -201,6 +218,7 @@ bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
     // Find the states for those UIDs in the function.
     int UID;
     // Call->getNumArgOperands
+    // Start from end of UIDs and end of function proper arguments.
     for (auto II = UIDs.rbegin(), EE = UIDs.rend(); II != EE; ++II, --lastArg) {
       auto UID_str = *II;
       if (UID_str.getAsInteger(10, UID))
@@ -217,12 +235,29 @@ bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
     }
 
     // TODO could use BB.getValueSymbolTable()
-    // Start from end of UIDs and end of function proper arguments.
 
   } else if (anno.startswith(prefix1)) {
     Assertion As = AM.getParsedAssertion(anno);
     Function *F = GetFuncFor(As.Kind, FuncType::Update);
 
+    IRBuilder<> Builder(Inst.getParent());
+    Builder.SetInsertPoint(&Inst);
+
+    Value *FNameExpr = *++I;
+    auto *FName =
+      cast<GlobalValue>(cast<ConstantExpr>(FNameExpr)->getOperand(0));
+    // Notice:
+    // We're using a string that's sitting in "llvm.metadata", which will
+    // magically vanish upon CodeGen, so let's go ahead and remove that.
+    FName->setSection("");
+
+    auto *State = States[As.UID];
+    if (!State) {
+      // Haven't generated the alloca here, must be function parameter.
+      Function *ThisF = Inst.getParent()->getParent();
+      State = ThisF->getValueSymbolTable().lookup( getStateName(As.UID) );
+    }
+    Builder.CreateCall4(F, Addr, State, FNameExpr, *++I);
   }
   Inst.eraseFromParent();
   return true;
