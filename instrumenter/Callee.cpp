@@ -234,6 +234,9 @@ bool CalleeInstrumenter::runOnFunction(Function &F) {
     F.setLinkage(GlobalValue::LinkageTypes::LinkOnceODRLinkage);
   return true;
   }
+  if (F.isIntrinsic()) {
+    return true;
+  }
   DEBUG(dbgs() << "Running on: " << F.getName() << "\n");
   // LLVMContext &C = F.getContext();
   FunctionType *FTy = F.getFunctionType();
