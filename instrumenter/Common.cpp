@@ -50,8 +50,13 @@ std::string getStateName(int UID) {
 }
 
 StructType *Common::getStructTypeFor(StringRef AssertionKind) {
-  return M.getTypeByName(
-    ("struct." + AssertionKind + "_state").str());
+  auto StructName = ("struct." + AssertionKind + "_state").str();
+  StructType *ST = M.getTypeByName(StructName);
+  if (!ST) {
+    // Create an empty struct instead, and give it that name.
+    ST = StructType::create(ArrayRef<Type*>(), StructName);
+  }
+  return ST;
 }
 
 }

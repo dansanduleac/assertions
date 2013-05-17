@@ -74,13 +74,16 @@ FnMapTy &CallerInstrumenter::SwitchCache(FuncType type) {
   switch (type) {
     case FuncType::Init:  return InitFuncs;
     case FuncType::Update: return UpdateFuncs;
+    case FuncType::Alloc: return AllocFuncs;
     default:
       llvm_unreachable("Unhandled FuncType in Caller.cpp");
   }
 }
 
+// May return nullptr if the function was not found.
 Function *CallerInstrumenter::GetFuncFor(StringRef assertionKind,
-                                         FuncType type) {
+                                         FuncType type,
+                                         bool strict) {
   FnMapTy &Map = SwitchCache(type);
   auto &Cached = Map[assertionKind];
   if (!Cached) {
@@ -89,13 +92,17 @@ Function *CallerInstrumenter::GetFuncFor(StringRef assertionKind,
     switch (type) {
       case FuncType::Init:   prefix = "__init_"; break;
       case FuncType::Update: prefix = "__update_"; break;
+      case FuncType::Alloc:  prefix = "__alloc_"; break;
     }
     std::string FnName = (prefix + assertionKind).str();
     //auto Fn = Co.Assertions.getFunction(FnName);
     auto Fn = Mod->getFunction(FnName);
     if (!Fn) {
-      report_fatal_error("Instrumentation function '" + FnName + "' "
-        + "does not exist in Assertions.c");
+      if (strict) {
+        report_fatal_error("Instrumentation function '" + FnName + "' "
+          + "does not exist in Assertions.c");
+      }
+      return nullptr;
     }
     // No need anymore, since we're linking "Assertions" in first.
     // Function *FDecl = cast<Function>(
@@ -151,21 +158,29 @@ bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
   }
   Builder.SetInsertPoint(Here);
 
+  // If the struct type is not declared even, this creates an empty StructType
+  // and returns that instead.
   auto *Type = Co.getStructTypeFor(As.Kind);
-  // TODO we might have assertions with no state, in that case, set Alloca and
-  // States[As.UID] to a ConstantPointerNull.
-
+  Value *StateVar = nullptr;
+  // If we have an non-existent, not defined or empty struct, then consider
+  // that the annotation doesn't use any state.
+  if (Type->isOpaque() || Type->getNumElements() == 0) {
+    StateVar = ConstantPointerNull::get(Type->getPointerTo());
+  } else {
   // TODO add a special assertion flag (not parameter?) that says "i'm going
   // to allocate memory myself", this probably can be tested by checking for
   // the existence of a different function that allocates and returns a
-  // pointer, and it would be retrieved by GetFuncFor(As.Kind,
-  // FuncType::Alloc), then that pointer would get passed to the init
+  // pointer, and it would be retrieved by , then that pointer would get passed to the init
   // function.
-  auto *Alloca = Builder.CreateAlloca(Type, nullptr, StateName);
-  // And save it for re-use.
-  States[As.UID] = Alloca;
-  DEBUG(dbgs() << "Alloca state: " << Alloca->getName() << "  isStatic=" 
-    << Alloca->isStaticAlloca() << "\n");
+    // USE THIS:
+       //  GetFuncFor(As.Kind, FuncType::Alloc)
+    auto *Alloca = Builder.CreateAlloca(Type, nullptr, StateName);
+    // And save it for re-use.
+    States[As.UID] = Alloca;
+    DEBUG(dbgs() << "Alloca state: " << Alloca->getName() << "  isStatic=" 
+      << Alloca->isStaticAlloca() << "\n");
+    StateVar = Alloca;
+  }
   //The last 2 parameters pass as in the annotation call (file name & line).
   Value *FNameExpr = *++I;
   auto *FName =
@@ -174,7 +189,7 @@ bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
   // We're using a string that's sitting in "llvm.metadata", which will
   // magically vanish upon CodeGen, so let's go ahead and remove that.
   FName->setSection("");
-  Builder.CreateCall5(F, Alloca, Addr, Props, FNameExpr, *++I);
+  Builder.CreateCall5(F, StateVar, Addr, Props, FNameExpr, *++I);
   // Builder.CreateStore(Call, Alloca);
 
   // auto FTy = FunctionType::get(
@@ -184,6 +199,7 @@ bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
   return true;
 }
 
+// TODO this crashes if Clang compiles with O2 at creating the Call4, why...
 bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
   DEBUG(dbgs() << "Instrumenting assertion Expr\n");
   // This should also be used for CallExpr (Clang).
