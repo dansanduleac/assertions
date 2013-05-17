@@ -1,7 +1,10 @@
+#include "StringJoin.h" // from Clang
+
 #include "Common.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/raw_ostream.h"
 #include <utility>
 
 using namespace llvm;
@@ -36,6 +39,14 @@ bool ParseAssertionMeta(StringRef anno, UID_KindTy &UID_Kinds) {
     return true;
   }
   return false; 
+}
+
+std::string getStateName(int UID) {
+  Concatenation StateName(".");
+  StateName.append("assertions");
+  StateName.append(UID);
+  StateName.append("state");
+  return StateName.str();
 }
 
 StructType *Common::getStructTypeFor(StringRef AssertionKind) {

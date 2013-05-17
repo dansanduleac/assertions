@@ -2,6 +2,7 @@
 #define ASSERTIONS_INSTRUMENTER_COMMON_H
 
 #include <utility>
+#include <string>
 
 namespace llvm {
   class StringRef;
@@ -23,6 +24,8 @@ typedef SmallVectorImpl<std::pair<StringRef, StringRef>> UID_KindTy;
 bool ParseAssertionFuncall(StringRef anno, SmallVectorImpl<StringRef> &UIDs);
 
 bool ParseAssertionMeta(StringRef anno, UID_KindTy &UID_Kinds);
+
+std::string getStateName(int UID);
 
 class Common {
 public:
