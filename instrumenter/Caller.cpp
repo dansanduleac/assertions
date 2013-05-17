@@ -209,6 +209,7 @@ bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
   Value *Addr = (*I++);
   StringRef anno = ParseAnnotationCall(CS);
   StringRef prefix1 = "assertion,";
+  LLVMContext &Context = Inst.getParent()->getParent()->getContext();
 
   SmallVector<StringRef, 2> UIDs;
   if (ParseAssertionFuncall(anno, UIDs)) {
@@ -268,10 +269,19 @@ bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
     FName->setSection("");
 
     auto *State = States[As.UID];
+    Function *ThisF = Inst.getParent()->getParent();
     if (!State) {
       // Haven't generated the alloca here, must be function parameter.
-      Function *ThisF = Inst.getParent()->getParent();
       State = ThisF->getValueSymbolTable().lookup( getStateName(As.UID) );
+    }
+    DEBUG(dbgs() << "-- Annotated Expr: " << *CS.getInstruction() << "\n");
+    DEBUG(dbgs() << "State: " << *State << "\n");
+    if (!State) {
+      Concatenation Err;
+      Err << "Couldn't find state for UID " << As.UID;
+      Err << " in function '" << ThisF->getName() << "'";
+      Context.emitError(&Inst, Err.str());
+      return true;
     }
     Builder.CreateCall4(F, Addr, State, FNameExpr, *++I);
   }
