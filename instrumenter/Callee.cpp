@@ -27,7 +27,9 @@ public:
 };
 
 void CalleeInstrumenter::ExtractGlobalAnnotations(llvm::Module &M) {
-  auto *Annos = cast<GlobalVariable>(M.getNamedGlobal("llvm.global.annotations"));
+  auto *Annos = cast_or_null<GlobalVariable>(M.getNamedGlobal("llvm.global.annotations"));
+  if (!Annos)
+    return;
   assert(Annos->getSection() == "llvm.metadata");
   // This should be a constant array.
   auto *Array = cast<ConstantArray>(Annos->getInitializer());
