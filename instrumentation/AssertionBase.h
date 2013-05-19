@@ -3,6 +3,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifndef NDEBUG
+
+// if (DebugFlag)
+#define DEBUG(X)      \
+  do { X; } while (0)
+
+#else
+#define DEBUG(X) do { } while (0)
+#endif
+
+
+
 #define STRUCT(ASSERTION)  ASSERTION##_state
 
 #define STRUCT_DEFAULT(ASSERTION) \
