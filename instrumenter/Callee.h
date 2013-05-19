@@ -32,6 +32,8 @@
 #define	ANNOTATEVARIABLES_CALLEE_INSTRUMENTATION_H
 
 #include "Common.h"
+ // From the clang tool.
+#include "Assertion.h"
 
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/DenseMap.h"
@@ -77,6 +79,8 @@ class CalleeInstrumenter : public llvm::ModulePass {
   // they are stored in map for short duration anyway.
   typedef llvm::DenseMap<llvm::Function*, llvm::DISubprogram> FunctionDIMap;
   FunctionDIMap FunctionDIs;
+
+  AssertionManager AM; // To parse assertion strings.
 public:
   static char ID;
   CalleeInstrumenter(Common &C) : ModulePass(ID), Co(C) {}

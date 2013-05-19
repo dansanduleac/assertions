@@ -7,6 +7,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
@@ -290,8 +291,56 @@ bool CalleeInstrumenter::runOnFunction(Function &F) {
         gv->setSection(AnnotationSection);
         */
       } else if (anno.startswith(prefix1)) {
-        // TODO
-        // Assertion As = AM.getParsedAssertion(anno);
+        DEBUG(dbgs() << "[Callee] ` Instrumenting asserted return value\n");
+        Assertion As = AM.getParsedAssertion(anno);
+        // To keep state for the function's return type,
+        // 1) Introduce "static" variable that keeps the state (internal global)
+        //    called `<function>.getStateName(As.UID)`
+        auto GlobalStateName = getGlobalStateNameFor(&F, As);
+        StructType *ST = Co.getStructTypeFor(As.Kind);
+        Module *M = F.getParent();
+        // Initialise it to the "default" state.
+        Constant *Init = Co.getStructValueFor(As.Kind);
+        GlobalVariable *StateVar = 
+          new GlobalVariable(*M, ST, false,
+            GlobalValue::LinkageTypes::InternalLinkage, Init,
+            GlobalStateName);
+        // 4) Instrument the function's return points so that it can
+        //    always runs the Update function for the assertion As.
+        //SmallPtrSet<ReturnInst *, 16> Returns;
+        for (auto I = inst_begin(F), E = inst_end(F); I != E; I++) {
+          // Is this an actual return instruction?
+          if (auto *Return = dyn_cast<ReturnInst>(&*I)) {
+            DEBUG(dbgs() << "Return value: " << *Return << "\n");
+            //Returns.insert(Return);
+            IRBuilder<> Builder(Return->getParent());
+            Builder.SetInsertPoint(Return);
+            if (F.getReturnType()->isVoidTy()) {
+              getGlobalContext().emitError("Asserted return type can't be void");
+            }
+            auto *InstrFn = Co.GetFuncFor(As.Kind, Common::FuncType::Update);
+            // Store Return->getReturnValue() to an alloca, so that we can
+            // pass the address.
+            auto *RV = Return->getReturnValue();
+            auto *RVaddr = Builder.CreateAlloca(RV->getType(), nullptr);
+            Builder.CreateStore(RV, RVaddr, /*volatile*/true);
+            // Pointer-to-variable type in the function (currently i8*)
+            auto *PtrTyInFn = InstrFn->getFunctionType()->getParamType(0);
+            auto *i8Addr = Builder.CreateBitCast(RVaddr, PtrTyInFn);
+            // XXX Constant::getPointerCast(Constant *C, Type *Ty)
+            Value *Args[] = {
+              i8Addr,
+              StateVar, // state
+              annoInfo.FName,
+              annoInfo.LineNo
+            };
+            Builder.CreateCall(InstrFn, Args);
+            // CallInst::Create(InstrFn, Args)->insertBefore(Return);
+          }
+        }
+        // for (auto *Return : Returns) {
+        // }
+        break;
       }
     }
   }
