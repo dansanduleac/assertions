@@ -10,7 +10,7 @@ set(OUTPUT Assertions.bc)
 
 add_custom_command(
   OUTPUT ${OUTPUT}
-  COMMAND ${CMAKE_C_COMPILER} -cc1 -emit-llvm-bc -Os -o ${OUTPUT}
+  COMMAND ${CMAKE_C_COMPILER} -cc1 -std=c11 -emit-llvm-bc -Os -o ${OUTPUT}
   ${CMAKE_CURRENT_SOURCE_DIR}/${FILE}
   MAIN_DEPENDENCY ${FILE}
   OUTPUT_REQUIRED_FILES ${FILE}
