@@ -307,12 +307,10 @@ bool CalleeInstrumenter::runOnFunction(Function &F) {
             GlobalStateName);
         // 4) Instrument the function's return points so that it can
         //    always runs the Update function for the assertion As.
-        //SmallPtrSet<ReturnInst *, 16> Returns;
         for (auto I = inst_begin(F), E = inst_end(F); I != E; I++) {
           // Is this an actual return instruction?
           if (auto *Return = dyn_cast<ReturnInst>(&*I)) {
             DEBUG(dbgs() << "Return value: " << *Return << "\n");
-            //Returns.insert(Return);
             IRBuilder<> Builder(Return->getParent());
             Builder.SetInsertPoint(Return);
             if (F.getReturnType()->isVoidTy()) {
@@ -335,11 +333,8 @@ bool CalleeInstrumenter::runOnFunction(Function &F) {
               annoInfo.LineNo
             };
             Builder.CreateCall(InstrFn, Args);
-            // CallInst::Create(InstrFn, Args)->insertBefore(Return);
           }
         }
-        // for (auto *Return : Returns) {
-        // }
         break;
       }
     }
