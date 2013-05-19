@@ -219,8 +219,6 @@ Function *CalleeInstrumenter::ReplaceFunction(Function *F, ArrayRef<Type*> Param
 bool CalleeInstrumenter::runOnModule(Module &M) {
   // Collect debug info descriptors for functions.
   CollectFunctionDIs(M);
-
-  DEBUG(dbgs() << "Assertions[Callee] - Updating function params\n");
   // Can't do foreach because we sometimes remove current function as we go
   // and we need iterators to maintain validity.
   for (Module::iterator I = M.begin(), E = M.end(); I != E; ) {
@@ -238,7 +236,7 @@ bool CalleeInstrumenter::runOnFunction(Function &F) {
   if (F.isIntrinsic()) {
     return true;
   }
-  DEBUG(dbgs() << "Running on: " << F.getName() << "\n");
+  DEBUG(dbgs() << "[Callee] Running on: " << F.getName() << "\n");
   // LLVMContext &C = F.getContext();
   FunctionType *FTy = F.getFunctionType();
   //unsigned NumArgs = F.arg_size();
@@ -250,6 +248,7 @@ bool CalleeInstrumenter::runOnFunction(Function &F) {
       StringRef prefix1 = "assertion,";
       SmallVector<std::pair<StringRef, StringRef>, 2> UID_Kinds;
       if (ParseAssertionMeta(anno, UID_Kinds)) {
+        DEBUG(dbgs() << "[Callee] ` Updating function params\n");
         // Recreate the function type.
         SmallVector<Type*, 10> Params(FTy->param_begin(), FTy->param_end());
   
