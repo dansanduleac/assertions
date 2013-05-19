@@ -229,7 +229,8 @@ bool CalleeInstrumenter::runOnModule(Module &M) {
 
 bool CalleeInstrumenter::runOnFunction(Function &F) {
   if (F.getName().startswith("__update_") ||
-      F.getName().startswith("__init_")) {
+      F.getName().startswith("__init_")   ||
+      F.getName().startswith("__alloc_")) {
     F.setLinkage(GlobalValue::LinkageTypes::LinkOnceODRLinkage);
   return true;
   }
