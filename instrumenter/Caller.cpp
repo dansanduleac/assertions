@@ -159,9 +159,10 @@ bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
   DEBUG(dbgs() << "[Caller] Instrumenting assertion Expr\n");
   // This should also be used for CallExpr (Clang).
   auto I = CS.arg_begin();
-  // *I should the i8* bitcast of the modified variable, but it can also be
+  // Value *Addr = (*I++);
+  // Addr should the i8* bitcast of the modified variable, but it can also be
   // *null, specifically when we're annotating a clang CallExpr.
-  Value *Addr = (*I++);
+  I++;
   StringRef anno = ParseAnnotationCall(CS);
   StringRef prefix1 = "assertion,";
   LLVMContext &Context = Inst.getParent()->getParent()->getContext();
@@ -238,7 +239,13 @@ bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
       Context.emitError(&Inst, Err.str());
       return true;
     }
-    Builder.CreateCall4(F, Addr, State, FNameExpr, *++I);
+    // Instead of passing Addr (the updated variable's address), look 2
+    // instructions behind for the store (because one instruction behind is
+    // the addr bitcast), and pass the value.
+    auto *store = dyn_cast<StoreInst>(Inst.getPrevNode()->getPrevNode());
+    assert(store && "Variable update annotation, but no store beforehand");
+    auto *NewVal = store->getValueOperand();
+    Builder.CreateCall4(F, NewVal, State, FNameExpr, *++I);
   }
   Inst.eraseFromParent();
   return true;

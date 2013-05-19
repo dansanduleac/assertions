@@ -320,14 +320,8 @@ bool CalleeInstrumenter::runOnFunction(Function &F) {
             // Store Return->getReturnValue() to an alloca, so that we can
             // pass the address.
             auto *RV = Return->getReturnValue();
-            auto *RVaddr = Builder.CreateAlloca(RV->getType(), nullptr);
-            Builder.CreateStore(RV, RVaddr, /*volatile*/true);
-            // Pointer-to-variable type in the function (currently i8*)
-            auto *PtrTyInFn = InstrFn->getFunctionType()->getParamType(0);
-            auto *i8Addr = Builder.CreateBitCast(RVaddr, PtrTyInFn);
-            // XXX Constant::getPointerCast(Constant *C, Type *Ty)
             Value *Args[] = {
-              i8Addr,
+              RV,
               StateVar, // state
               annoInfo.FName,
               annoInfo.LineNo

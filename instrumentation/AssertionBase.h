@@ -20,10 +20,12 @@
 #define STRUCT_DEFAULT(ASSERTION) \
   const STRUCT(ASSERTION) ASSERTION##_state_default
 
-#define INSTRUMENT_update(ASSERTION)                 \
+// CTYPE should take the form of /u?int\d+_t/, e.g. uint8_t
+// These types are defined in stdint.h
+#define INSTRUMENT_update(ASSERTION, CTYPE)          \
    inline extern                                     \
    void __update_##ASSERTION(                        \
-      const uint8_t *addr, STRUCT(ASSERTION) *state, \
+      const CTYPE newVal, STRUCT(ASSERTION) *state,  \
       const char *file, int line)
 
 // State is being allocated automatically, and passed to the function to avoid
