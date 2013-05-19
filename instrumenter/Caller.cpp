@@ -83,7 +83,7 @@ StringRef CallerInstrumenter::ParseAnnotationCall(CallSite &CS) {
 }
 
 bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
-  DEBUG(dbgs() << "Instrumenting assertion initialization\n");
+  DEBUG(dbgs() << "[Caller] Instrumenting assertion initialization\n");
   // IRBuilder::getInt8PtrTy()
   auto I = CS.arg_begin();
   // *I is the i8* bitcast of the new variable, save that.
@@ -156,7 +156,7 @@ bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
 
 // TODO this crashes if Clang compiles with O2 at creating the Call4, why...
 bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
-  DEBUG(dbgs() << "Instrumenting assertion Expr\n");
+  DEBUG(dbgs() << "[Caller] Instrumenting assertion Expr\n");
   // This should also be used for CallExpr (Clang).
   auto I = CS.arg_begin();
   // *I should the i8* bitcast of the modified variable, but it can also be
