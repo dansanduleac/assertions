@@ -53,12 +53,20 @@ namespace llvm {
 
 namespace assertions {
 
+class AssertionManager;
+
 /// Instruments function calls in the callee context.
 /// Adds 
 class CalleeInstrumenter : public llvm::ModulePass {
   Common &Co;
 
-  typedef llvm::SmallVector<llvm::StringRef, 1> AnnotationsT;
+  struct AnnotationT {
+    llvm::StringRef annotation;
+    Constant *FName;
+    Constant *LineNo;
+  };
+  
+  typedef llvm::SmallVector<AnnotationT, 1> AnnotationsT;
   llvm::DenseMap<llvm::Function*, AnnotationsT> GlobalAnno;
 
   // Map each LLVM function to corresponding metadata with debug info. If

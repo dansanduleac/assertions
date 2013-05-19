@@ -48,11 +48,12 @@ void CalleeInstrumenter::ExtractGlobalAnnotations(llvm::Module &M) {
       cast<GlobalVariable>(cast<ConstantExpr>(*iter)->op_begin()->get());
     auto Str = cast<ConstantDataSequential>(
                   StrGV->getInitializer())->getAsString().drop_back();
-    // errs() << Str << "\n";
-    GlobalAnno[F].push_back(Str);
+    auto *FName = cast<Constant>(*++iter);  //     =>  i8* file name
+    auto *LineNo = cast<Constant>(*++iter); //     =>  i32 line number
+    GlobalAnno[F].push_back( (AnnotationT) { Str, FName, LineNo } );
   }
-  // Don't do this, otherwise we end up with a dangling CallSite to 
-  // the function.
+  // Delete it, don't need this structure anymore.
+  // (even if we don't, it's going to be eliminated in CodeGen)
   Annos->eraseFromParent();
 }
 
@@ -243,7 +244,8 @@ bool CalleeInstrumenter::runOnFunction(Function &F) {
   //unsigned NumArgs = F.arg_size();
   auto const it = GlobalAnno.find(&F);
   if (it != GlobalAnno.end()) {
-    for (StringRef anno : it->second) {
+    for (AnnotationT annoInfo : it->second) {
+      StringRef anno = annoInfo.annotation;
       // Holds assertions on the function's return value.
       StringRef prefix1 = "assertion,";
       SmallVector<std::pair<StringRef, StringRef>, 2> UID_Kinds;
