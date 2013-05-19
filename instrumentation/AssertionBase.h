@@ -5,6 +5,9 @@
 
 #define STRUCT(ASSERTION)  ASSERTION##_state
 
+#define STRUCT_DEFAULT(ASSERTION) \
+  const STRUCT(ASSERTION) ASSERTION##_state_default
+
 #define INSTRUMENT_update(ASSERTION)                 \
    inline extern                                     \
    void __update_##ASSERTION(                        \

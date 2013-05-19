@@ -1,4 +1,5 @@
 #include "AssertionBase.h"
+#include <limits.h>
 
 // monotonic
 // ==============================================
@@ -6,6 +7,8 @@
 typedef struct {
   int prev;
 } STRUCT(monotonic);
+
+STRUCT_DEFAULT(monotonic) = { 0 }; // INT_MIN
 
 INSTRUMENT_init(monotonic) {
   // Initialise "prev" with the current value.

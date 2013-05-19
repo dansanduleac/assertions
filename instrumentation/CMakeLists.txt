@@ -1,15 +1,27 @@
+cmake_minimum_required(VERSION 2.8)
+
 project(instrumentation)
 
 set(FILE Assertions.c)
+set(DEPS AssertionBase.h)
+set(OUTPUT Assertions.bc)
 
-# foreach, output, string replace
+# message(STATUS "DEPFILE FLAGS: " ${CMAKE_DEPFILE_FLAGS_CXX})
 
 add_custom_command(
-  OUTPUT Assertions.bc
-  COMMAND ${CMAKE_C_COMPILER} -cc1 -emit-llvm-bc -Os -o Assertions.bc
+  OUTPUT ${OUTPUT}
+  COMMAND ${CMAKE_C_COMPILER} -cc1 -emit-llvm-bc -Os -o ${OUTPUT}
   ${CMAKE_CURRENT_SOURCE_DIR}/${FILE}
-  DEPENDS ${FILE}
+  MAIN_DEPENDENCY ${FILE}
+  OUTPUT_REQUIRED_FILES ${FILE}
+  DEPENDS ${DEPS}
+  COMMENT "Compiling assertions to LLVM Module"
+  # DEPENDS ${FILE}
 )
-add_custom_target(assertions_bc ALL DEPENDS Assertions.bc)
 
-# set_source_files_properties( Assertions.bc PROPERTIES GENERATED TRUE )
+set_source_files_properties( ${OUTPUT} PROPERTIES GENERATED TRUE )
+
+add_custom_target(
+  assertions_bc ALL
+  DEPENDS ${OUTPUT}
+  VERBATIM)
