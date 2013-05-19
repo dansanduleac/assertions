@@ -154,7 +154,6 @@ bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
   return true;
 }
 
-// TODO this crashes if Clang compiles with O2 at creating the Call4, why...
 bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
   DEBUG(dbgs() << "[Caller] Instrumenting assertion Expr\n");
   // This should also be used for CallExpr (Clang).
@@ -235,7 +234,8 @@ bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
     if (!State) {
       Concatenation Err;
       Err << "Couldn't find state for UID " << As.UID;
-      Err << " in function '" << ThisF->getName() << "'";
+      Err << " in function '" << ThisF->getName() << "'. ";
+      Err << "Only pass unoptimised modules to this program.";
       Context.emitError(&Inst, Err.str());
       return true;
     }
