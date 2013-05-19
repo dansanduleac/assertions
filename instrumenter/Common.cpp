@@ -1,15 +1,21 @@
 #include "StringJoin.h" // from Clang
+#include "Assertion.h"  // from Clang
 
 #include "Common.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Debug.h"
 #include <utility>
 
 using namespace llvm;
 
 namespace assertions {
+
+typedef Common::FnMapTy   FnMapTy;
+typedef Common::FuncType  FuncType;
 
 // Puts the UIDs parsed from anno in the specified SmallVector. If anno isn't
 // a valid function call annotation string, does nothing and returns false.
@@ -57,6 +63,61 @@ StructType *Common::getStructTypeFor(StringRef AssertionKind) {
     ST = StructType::create(ArrayRef<Type*>(), StructName);
   }
   return ST;
+}
+
+Constant *Common::getStructValueFor(StringRef AssertionKind) {
+  auto StructName = (AssertionKind + "_state_default").str();
+  GlobalVariable *Struct =
+    cast_or_null<GlobalVariable>(M.getNamedGlobal(StructName));
+    // DEBUG(dbgs() << "Struct Initializer: " << *Struct->getInitializer() << "\n");
+  return Struct->getInitializer();
+}
+
+std::string getGlobalStateNameFor(Function *F, Assertion &As) {
+  return (F->getName() + "." + getStateName(As.UID)).str();
+}
+
+Common::FnMapTy &Common::SwitchCache(FuncType type) {
+  switch (type) {
+    case FuncType::Init:  return InitFuncs;
+    case FuncType::Update: return UpdateFuncs;
+    case FuncType::Alloc: return AllocFuncs;
+    default:
+      llvm_unreachable("Unhandled FuncType in Caller.cpp");
+  }
+}
+
+Function *Common::GetFuncFor(StringRef assertionKind,
+                             FuncType type, bool strict) {
+  FnMapTy &Map = SwitchCache(type);
+  auto &Cached = Map[assertionKind];
+  if (!Cached) {
+    // Lookup @"__init_" + a.Kind in the Assertions module.
+    StringRef prefix;
+    switch (type) {
+      case FuncType::Init:   prefix = "__init_"; break;
+      case FuncType::Update: prefix = "__update_"; break;
+      case FuncType::Alloc:  prefix = "__alloc_"; break;
+    }
+    std::string FnName = (prefix + assertionKind).str();
+    //auto Fn = Co.Assertions.getFunction(FnName);
+    auto Fn = M.getFunction(FnName);
+    if (!Fn) {
+      if (strict) {
+        report_fatal_error("Instrumentation function '" + FnName + "' "
+          + "does not exist in Assertions.c");
+      }
+      return nullptr;
+    }
+    // No need anymore, since we're linking "Assertions" in first.
+    // Function *FDecl = cast<Function>(
+    //   Mod->getOrInsertFunction(FnName, Fn->getFunctionType(),
+    //                            Fn->getAttributes()));
+    // InitFunc->setLinkage(GlobalValue::LinkageTypes::LinkerPrivateLinkage);
+    // Cached = FDecl;
+    Cached = Fn;
+  }
+  return Cached;
 }
 
 }

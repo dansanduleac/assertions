@@ -57,17 +57,7 @@ class CallerInstrumenter : public llvm::FunctionPass {
   llvm::Module *Mod;
   Common &Co;
 
-  // Caches for alloc and update functions declared in the  module we're
-  // processing.
-public:
-  typedef llvm::StringMap<llvm::Function *> FnMapTy;
-  // Instrumentation function types.
-  enum class FuncType { Init, Update, Alloc };
 private:
-  FnMapTy InitFuncs;
-  FnMapTy UpdateFuncs;
-  FnMapTy AllocFuncs;
-
   llvm::DenseMap<int, llvm::Value *> States;
 
   AssertionManager AM; // To parse assertion strings.
@@ -89,14 +79,6 @@ private:
   bool InstrumentInit(llvm::Instruction &Inst, llvm::CallSite &CS);
   bool InstrumentExpr(llvm::Instruction &Inst, llvm::CallSite &CS);
 
-
-  // This one crashes if the function is not found, but may return nullptr if
-  // strict is set to false.
-  Function *GetFuncFor(StringRef assertionKind, FuncType type,
-                       bool strict = true);
-
-  // Returns the cache for the requested instrumentation function type.
-  FnMapTy &SwitchCache(FuncType type);
   // Gets the annotation string from call of the form void(i8*,i8*,i8*,i32).
   StringRef ParseAnnotationCall(llvm::CallSite &CS);
 };

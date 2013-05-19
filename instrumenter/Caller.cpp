@@ -18,10 +18,10 @@ namespace assertions {
 
 char CallerInstrumenter::ID = 0;
 
-CallerInstrumenter::~CallerInstrumenter() {}
+typedef Common::FnMapTy   FnMapTy;
+typedef Common::FuncType  FuncType;
 
-typedef CallerInstrumenter::FnMapTy   FnMapTy;
-typedef CallerInstrumenter::FuncType  FuncType;
+CallerInstrumenter::~CallerInstrumenter() {}
 
 bool CallerInstrumenter::doInitialization(Module &M) {
   Mod = &M;
@@ -70,51 +70,6 @@ bool CallerInstrumenter::runOnBasicBlock(BasicBlock &Block) {
   return modifiedIR;
 }
 
-FnMapTy &CallerInstrumenter::SwitchCache(FuncType type) {
-  switch (type) {
-    case FuncType::Init:  return InitFuncs;
-    case FuncType::Update: return UpdateFuncs;
-    case FuncType::Alloc: return AllocFuncs;
-    default:
-      llvm_unreachable("Unhandled FuncType in Caller.cpp");
-  }
-}
-
-// May return nullptr if the function was not found.
-Function *CallerInstrumenter::GetFuncFor(StringRef assertionKind,
-                                         FuncType type,
-                                         bool strict) {
-  FnMapTy &Map = SwitchCache(type);
-  auto &Cached = Map[assertionKind];
-  if (!Cached) {
-    // Lookup @"__init_" + a.Kind in the Assertions module.
-    StringRef prefix;
-    switch (type) {
-      case FuncType::Init:   prefix = "__init_"; break;
-      case FuncType::Update: prefix = "__update_"; break;
-      case FuncType::Alloc:  prefix = "__alloc_"; break;
-    }
-    std::string FnName = (prefix + assertionKind).str();
-    //auto Fn = Co.Assertions.getFunction(FnName);
-    auto Fn = Mod->getFunction(FnName);
-    if (!Fn) {
-      if (strict) {
-        report_fatal_error("Instrumentation function '" + FnName + "' "
-          + "does not exist in Assertions.c");
-      }
-      return nullptr;
-    }
-    // No need anymore, since we're linking "Assertions" in first.
-    // Function *FDecl = cast<Function>(
-    //   Mod->getOrInsertFunction(FnName, Fn->getFunctionType(),
-    //                            Fn->getAttributes()));
-    // InitFunc->setLinkage(GlobalValue::LinkageTypes::LinkerPrivateLinkage);
-    // Cached = FDecl;
-    Cached = Fn;
-  }
-  return Cached;
-}
-
 StringRef CallerInstrumenter::ParseAnnotationCall(CallSite &CS) {
   auto I = CS.arg_begin() + 1;
   // Second one is getelementptr to the string annotation.
@@ -135,7 +90,7 @@ bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
   Value *Addr = (*I++);
   Assertion As = AM.getParsedAssertion(ParseAnnotationCall(CS));
 
-  Function *F = GetFuncFor(As.Kind, FuncType::Init);
+  Function *F = Co.GetFuncFor(As.Kind, FuncType::Init);
   IRBuilder<> Builder(Inst.getParent());
   // Pass props as NULL-terminated array of strings.
   // TODO Make a ConstantArray from As.Params
@@ -255,7 +210,7 @@ bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
 
   } else if (anno.startswith(prefix1)) {
     Assertion As = AM.getParsedAssertion(anno);
-    Function *F = GetFuncFor(As.Kind, FuncType::Update);
+    Function *F = Co.GetFuncFor(As.Kind, FuncType::Update);
 
     IRBuilder<> Builder(Inst.getParent());
     Builder.SetInsertPoint(&Inst);
