@@ -94,10 +94,66 @@ bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
 
   Function *F = Co.GetFuncFor(As.Kind, FuncType::Init);
   IRBuilder<> Builder(Inst.getParent());
+
+  // === Converting Props =================================================
+
   // Pass props as NULL-terminated array of strings.
-  // TODO Make a ConstantArray from As.Params
-  // TODO maybe pass as varargs actually?
-  auto Props = ConstantPointerNull::get(Builder.getInt8PtrTy()->getPointerTo());
+  auto *PropsTy = cast<PointerType>(F->getFunctionType()->getParamType(2));
+  // Or could get it out of ParamTy.
+  auto *ElemTy  = Builder.getInt8PtrTy();
+  // The array type should be compatible with ParamTy(now i8**).
+  //auto Props = ConstantPointerNull::get(Builder.getInt8PtrTy()->getPointerTo());
+  static_assert(sizeof(int) <= sizeof(char *),
+    "sizeof(int) must fit into char*");
+  // Make As.Params nicer: parse ints directly to int (fits in i8*)
+  SmallVector<Constant*, 3> ParamsArr;
+  for (StringRef str : As.Params) {
+    DEBUG(info("Param[]") << str << "\n");
+    int Int; // TODO Could make it size_t? always the size of a pointer,
+    // and modify Assertions.c accordingly to cast to size_t
+    // TODO If converted to int, will have to bitcast it to ElemTy.
+    if (!str.getAsInteger(0, Int)) {
+      // TODO assuming sizeof(int) == 4
+      Constant *IntC = ConstantInt::get(Builder.getInt32Ty(), Int);
+      ParamsArr.push_back(
+        ConstantExpr::getIntToPtr(IntC, ElemTy));
+      continue;
+    }
+
+    // Default case: create a constant string.
+    // TODO move ALL these into a CreateGlobalString method
+    // This is a [x * i8] constant, do a const GEP on it
+    auto *ConstStr = ConstantDataArray::getString(getGlobalContext(), str);
+    // TODO make it unnamed_addr
+    auto *ConstStrGV = new GlobalVariable(*Mod, ConstStr->getType(), true,
+      GlobalValue::PrivateLinkage, ConstStr, "assertions.prop");
+    DEBUG(info("ConstStrGV") << *ConstStrGV << "\n");
+
+    Constant *Idx = ConstantInt::get(Builder.getInt32Ty(), 0);
+    Constant *Indices[] = { Idx, Idx };
+    ParamsArr.push_back(
+      ConstantExpr::getGetElementPtr(ConstStrGV, Indices, true));
+    DEBUG(info("Which GEPped") << *ParamsArr.back() << "\n");
+  }
+  // End the list with a NULL ptr.
+  ParamsArr.push_back(ConstantPointerNull::get(ElemTy));
+  // TODO move all these in a CreateGlobalArray method
+  auto *ArrayTy = ArrayType::get(ElemTy, ParamsArr.size());
+
+  auto *Array = ConstantArray::get(ArrayTy, ParamsArr);
+  auto *ArrayGV = 
+          new GlobalVariable(*Mod, Array->getType(), true,
+            GlobalValue::PrivateLinkage, Array,
+            "assertions.props");
+
+  DEBUG(info("Params array") << *ArrayGV << "\n");
+  // We can't just do a bitcast to ParamTy, we need a GEP.
+  // TODO ocnsider ConstantExpr::getGetElementPtr(ArrayGV, )
+  auto *Props = Builder.CreateConstInBoundsGEP2_32(ArrayGV, 0, 0);
+  assert(Props->getType() == PropsTy && "Props argument type mismatch");
+  DEBUG(info("Props arg") << *Props << "\n");
+
+
   // Name of the state variable.
   auto StateName = getStateName(As.UID);
   // Make sure to insert after the initialisation (store), because in most
