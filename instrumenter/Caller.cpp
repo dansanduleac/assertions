@@ -3,7 +3,7 @@
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/IRBuilder.h" // maybe
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/CallSite.h"
@@ -108,7 +108,7 @@ bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
   // Make As.Params nicer: parse ints directly to int (fits in i8*)
   SmallVector<Constant*, 3> ParamsArr;
   for (StringRef str : As.Params) {
-    DEBUG(info("Param[]") << str << "\n");
+    DEBUG(info("Param") << str << "\n");
     int Int; // TODO Could make it size_t? always the size of a pointer,
     // and modify Assertions.c accordingly to cast to size_t
     // TODO If converted to int, will have to bitcast it to ElemTy.
