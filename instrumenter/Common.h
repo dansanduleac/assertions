@@ -2,6 +2,7 @@
 #define ASSERTIONS_INSTRUMENTER_COMMON_H
 
 #include "llvm/ADT/StringMap.h"
+#include "llvm/IR/LLVMContext.h"
 
 #include <utility>
 #include <string>
@@ -47,6 +48,9 @@ bool ParseAssertionMeta(StringRef anno, UID_KindTy &UID_Kinds);
 std::string getStateName(int UID);
 std::string getGlobalStateNameFor(Function *F, Assertion &As);
 
+
+// === Instrumentation helpers ================================================
+
 class Common {
 public:
   typedef llvm::StringMap<llvm::Function *> FnMapTy;
@@ -70,11 +74,17 @@ private:
 public:
   // The Composite module we're working on.
   Module &M;
+  // LLVM Context.
+  LLVMContext &Context;
 
-  Common(Module &Mod) : M(Mod) {}
+  Common(Module &Mod) : M(Mod), Context(getGlobalContext()) {}
 
   StructType *getStructTypeFor(StringRef AssertionKind);
   Constant *getStructValueFor(StringRef AssertionKind);
+
+  // === Functions that add instrumentation ===================================
+
+  Constant *GetPtrToGlobalString(StringRef str, StringRef name = "");
 
 };
 

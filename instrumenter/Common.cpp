@@ -6,6 +6,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include <utility>
@@ -144,6 +145,19 @@ Function *Common::GetFuncFor(StringRef assertionKind,
     Cached = Fn;
   }
   return Cached;
+}
+
+Constant *Common::GetPtrToGlobalString(StringRef str, StringRef name) {
+  // This is a [x * i8] constant, do a const GEP on it
+  auto *ConstStr = ConstantDataArray::getString(Context, str);
+  // TODO make it unnamed_addr
+  auto *ConstStrGV = new GlobalVariable(M, ConstStr->getType(), true,
+    GlobalValue::PrivateLinkage, ConstStr, name);
+  DEBUG(info("ConstStrGV") << *ConstStrGV << "\n");
+
+  Constant *Idx = ConstantInt::get(Type::getInt32Ty(Context), 0);
+  Constant *Indices[] = { Idx, Idx };
+  return ConstantExpr::getGetElementPtr(ConstStrGV, Indices, true);
 }
 
 }

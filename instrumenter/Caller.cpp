@@ -121,18 +121,8 @@ bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
     }
 
     // Default case: create a constant string.
-    // TODO move ALL these into a CreateGlobalString method
-    // This is a [x * i8] constant, do a const GEP on it
-    auto *ConstStr = ConstantDataArray::getString(getGlobalContext(), str);
-    // TODO make it unnamed_addr
-    auto *ConstStrGV = new GlobalVariable(*Mod, ConstStr->getType(), true,
-      GlobalValue::PrivateLinkage, ConstStr, "assertions.prop");
-    DEBUG(info("ConstStrGV") << *ConstStrGV << "\n");
-
-    Constant *Idx = ConstantInt::get(Builder.getInt32Ty(), 0);
-    Constant *Indices[] = { Idx, Idx };
-    ParamsArr.push_back(
-      ConstantExpr::getGetElementPtr(ConstStrGV, Indices, true));
+    auto *StrPtr = Co.GetPtrToGlobalString(str, "assertions.prop");
+    ParamsArr.push_back(StrPtr);
     DEBUG(info("Which GEPped") << *ParamsArr.back() << "\n");
   }
   // End the list with a NULL ptr.
