@@ -238,7 +238,7 @@ bool CalleeInstrumenter::runOnFunction(Function &F) {
   if (F.isIntrinsic()) {
     return true;
   }
-  DEBUG(dbgs() << "[Callee] Running on: " << F.getName() << "\n");
+  DEBUG(status("Callee", "Running on: " + F.getName()));
   // LLVMContext &C = F.getContext();
   FunctionType *FTy = F.getFunctionType();
   //unsigned NumArgs = F.arg_size();
@@ -250,7 +250,7 @@ bool CalleeInstrumenter::runOnFunction(Function &F) {
       StringRef prefix1 = "assertion,";
       SmallVector<std::pair<StringRef, StringRef>, 2> UID_Kinds;
       if (ParseAssertionMeta(anno, UID_Kinds)) {
-        DEBUG(dbgs() << "[Callee] ` Updating function params\n");
+        DEBUG(status("Callee", "Updating function params", 1));
         // Recreate the function type.
         SmallVector<Type*, 10> Params(FTy->param_begin(), FTy->param_end());
   
@@ -291,7 +291,7 @@ bool CalleeInstrumenter::runOnFunction(Function &F) {
         gv->setSection(AnnotationSection);
         */
       } else if (anno.startswith(prefix1)) {
-        DEBUG(dbgs() << "[Callee] ` Instrumenting asserted return value\n");
+        DEBUG(status("Callee", "Instrumenting asserted return value", 1));
         Assertion As = AM.getParsedAssertion(anno);
         // To keep state for the function's return type,
         // 1) Introduce "static" variable that keeps the state (internal global)

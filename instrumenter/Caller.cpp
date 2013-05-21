@@ -83,7 +83,7 @@ StringRef CallerInstrumenter::ParseAnnotationCall(CallSite &CS) {
 }
 
 bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
-  DEBUG(dbgs() << "[Caller] Instrumenting assertion initialization\n");
+  DEBUG(status("Caller", "Instrumenting assertion initialization"));
   // IRBuilder::getInt8PtrTy()
   auto I = CS.arg_begin();
   // *I is the i8* bitcast of the new variable, save that.
@@ -132,7 +132,7 @@ bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
     auto *Alloca = Builder.CreateAlloca(Type, nullptr, StateName);
     // And save it for re-use.
     States[As.UID] = Alloca;
-    DEBUG(dbgs() << "Alloca state: " << Alloca->getName() << "  isStatic=" 
+    DEBUG(info("Alloca state") << Alloca->getName() << "  isStatic=" 
       << Alloca->isStaticAlloca() << "\n");
     StateVar = Alloca;
   }
@@ -155,7 +155,7 @@ bool CallerInstrumenter::InstrumentInit(Instruction &Inst, CallSite &CS) {
 }
 
 bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
-  DEBUG(dbgs() << "[Caller] Instrumenting assertion Expr\n");
+  DEBUG(status("Caller", "Instrumenting assertion Expr"));
   // This should also be used for CallExpr (Clang).
   auto I = CS.arg_begin();
   // Value *Addr = (*I++);
@@ -229,8 +229,8 @@ bool CallerInstrumenter::InstrumentExpr(Instruction &Inst, CallSite &CS) {
       // Haven't generated the alloca here, must be function parameter.
       State = ThisF->getValueSymbolTable().lookup( getStateName(As.UID) );
     }
-    DEBUG(dbgs() << "-- Annotated Expr: " << *CS.getInstruction() << "\n");
-    DEBUG(dbgs() << "State: " << *State << "\n");
+    DEBUG(info("Annotated Expr") << *CS.getInstruction() << "\n");
+    DEBUG(info("State") << *State << "\n");
     if (!State) {
       Concatenation Err;
       Err << "Couldn't find state for UID " << As.UID;
