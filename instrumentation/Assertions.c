@@ -28,16 +28,17 @@ INSTRUMENT_update(monotonic, int32_t) {
 // ==============================================
 typedef struct { int than; } STRUCT(ge);
 
-INSTRUMENT_init(ge) {
-  // *props has to be the number
-  state->than = (int) *props;
-  int val = *(const int *) addr;
-  // TODO finish
-}
-
 INSTRUMENT_update(ge, int32_t) {
   EXPECT("ge", newVal >= state->than, 
   {
     printf("New value %d is not >= %d\n", newVal, state->than);
   });
+}
+
+INSTRUMENT_init(ge) {
+  // *props has to be the number
+  state->than = (int) *props;
+  int val = *(const int *) addr;
+  // Just call the update function to check the assertion.
+  __update_ge(val, state, file, line);
 }
