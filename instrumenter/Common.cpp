@@ -14,6 +14,32 @@ using namespace llvm;
 
 namespace assertions {
 
+void status(StringRef pass, Twine message, int level) {
+  // dbgs() does not have colors :(
+  raw_ostream& out = errs();
+  // assert(out.has_colors());
+  out << "[";
+  out.changeColor(raw_ostream::MAGENTA) << pass;
+  out.resetColor() << "] ";
+  for (int i = 0; i < level-1; ++i) {
+    out << "  ";
+  }
+  if (level > 0) {
+    out.changeColor(raw_ostream::BLUE, true);
+    out << "` ";
+  } 
+  out.changeColor(raw_ostream::YELLOW) << message << "\n";
+  out.resetColor();
+}
+
+raw_ostream &info(StringRef subject) {
+  raw_ostream &out = errs();
+  out.changeColor(raw_ostream::BLUE, true) << subject;
+  out.resetColor() << ": ";
+  return out;
+}
+
+
 typedef Common::FnMapTy   FnMapTy;
 typedef Common::FuncType  FuncType;
 

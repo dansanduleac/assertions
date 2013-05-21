@@ -12,12 +12,26 @@ namespace llvm {
   class Module;
   class Constant;
   class Function;
+  class Twine;
+  class raw_ostream;
   template <typename T> class SmallVectorImpl;
 }
 
 namespace assertions {
 
 using namespace llvm;
+
+// === Debug methods ==========================================================
+
+// Outputs a colored message to dbgs() mentioning the current pass and the
+// message.
+void status(StringRef pass, Twine message, int level = 0);
+
+// First prints the subject in a colorful manner, then returns the stream.
+raw_ostream &info(StringRef subject);
+
+// === Assertion parsing methods ==============================================
+
 struct Assertion;
 
 typedef SmallVectorImpl<std::pair<StringRef, StringRef>> UID_KindTy;
@@ -28,8 +42,9 @@ bool ParseAssertionFuncall(StringRef anno, SmallVectorImpl<StringRef> &UIDs);
 
 bool ParseAssertionMeta(StringRef anno, UID_KindTy &UID_Kinds);
 
-std::string getStateName(int UID);
+// === Instrumentation variables naming =======================================
 
+std::string getStateName(int UID);
 std::string getGlobalStateNameFor(Function *F, Assertion &As);
 
 class Common {
