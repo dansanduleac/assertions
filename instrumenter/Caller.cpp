@@ -51,7 +51,9 @@ bool CallerInstrumenter::runOnBasicBlock(BasicBlock &Block) {
     if (!CS)
       continue;
     Function *Callee = CS.getCalledFunction();
-    assert(Callee && "We don't have a called function?");
+    // Externally defined function, ignore.
+    if (!Callee)
+      continue;
     // We're interested in calls to llvm.var/assign.annotation
     switch (__builtin_expect(Callee->getIntrinsicID(),
                              Intrinsic::not_intrinsic)) {
