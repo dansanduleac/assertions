@@ -14,7 +14,6 @@
 #endif
 
 
-
 #define STRUCT(ASSERTION)  ASSERTION##_state
 
 #define STRUCT_DEFAULT(ASSERTION) \
@@ -47,7 +46,7 @@
 
 #define EXPECT(ASSERTION, COND, FAIL_BLOCK)        \
   do {                                             \
-    if (!(COND)) {                                 \
+    if (__builtin_expect(!COND, 0)) {              \
       fprintf(stderr, "%s:%d: failed "ASSERTION" assertion `%s' (%s:%d).\n", file, line, #COND, __FILE__, __LINE__); \
       do { FAIL_BLOCK } while(0);                  \
       abort();                                     \
